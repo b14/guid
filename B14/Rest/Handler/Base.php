@@ -7,7 +7,7 @@ namespace B14\Rest\Handler;
  * The base class all handlers should extend.
  */
 class Base
-{ 
+{
   /** Reference to the Rest server instsance. */
   protected $server;
 
@@ -22,20 +22,7 @@ class Base
   }
 
   /**
-   * Called prior to handle().
-   *
-   * When a handler doesn't alter the output, this is the only function that
-   * needs to be implemented.
-   *
-   * @return B14\Rest\Handler\Base
-   *   This MUST return an instance of it self.
-   */
-  public function preHandle($status) {
-    return $this;
-  }
-
-  /**
-   * Handle the output.
+   * Get the output.
    *
    * @param mixed $output
    *   The current output.
@@ -43,7 +30,7 @@ class Base
    * @return mixed
    *   The altered output.
    */
-  public function handle($status, $output = NULL) {
+  public function getOutput($status, $output = null) {
     return $output;
   }
 }

@@ -5,11 +5,7 @@ namespace app\Services;
 
 class System extends \B14\Rest\Service\Base
 {
-  const NAME = 'system';
-  
-  public function _blank() {
-    return 'version';
-  }
+  public $default_method = 'version';
   
   /**
    * Get the version of the GUID service.
@@ -25,7 +21,7 @@ class System extends \B14\Rest\Service\Base
    * Get stats.
    */
   public function stats() {
-    return $this->server->getHandler('app\Handler\Stats')->getStats();
+    return $this->server->getProcess('handlers', 'stats')->getStats();
   }
   
   /**
@@ -40,6 +36,6 @@ class System extends \B14\Rest\Service\Base
     if ($secret !== GUID_RESET_STATS_SECRET) {
       return FALSE;
     }
-    return $this->server->getHandler('app\Handler\Stats')->resetStats();
+    return $this->server->getProcess('handlers', 'stats')->resetStats();
   }
 }

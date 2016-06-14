@@ -8,9 +8,6 @@ namespace B14\Rest\Format;
  */
 abstract class Base
 {
-  /** Name of the format. */
-  const NAME = '';
-
   /** Reference to the Rest server instsance. */
   protected $server;
 
@@ -22,20 +19,6 @@ abstract class Base
    */
   public function __construct($server) {
     $this->server = $server;
-  }
-
-  /**
-   * Get the name of the class.
-   *
-   * You can't call the constant on the instance, but you can call it from the
-   * instance it self.
-   * This function allows you to get around that.
-   *
-   * @return string
-   *   The self::NAME constant.
-   */
-  public function _getName() {
-    return $this::NAME;
   }
 
   /**

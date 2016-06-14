@@ -8,21 +8,11 @@ namespace B14\Rest\Service;
  */
 class Doc extends Base
 {
-  /** {@inheritdoc} */
-  const NAME = 'doc';
-
   /** Tells availability of the \phpDocumentor\Reflection\DocBlock class. */
-  private $doc_block_available = FALSE;
+  private $doc_block_available = false;
 
-  /**
-   * Get the default method of this service.
-   *
-   * @return string
-   *   Name of the method.
-   */
-  public function _blank() {
-    return 'services';
-  }
+  /** The default method to call. */
+  public $default_method = 'services';
 
   /** {@inheritdoc} */
   public function __construct($server) {
@@ -39,15 +29,15 @@ class Doc extends Base
    *   A Reflection class that has the getDocComment() function.
    *
    * @param mixed
-   *   Will return a \phpDocumentor\Reflection\DocBlock or FALSE if it failed
+   *   Will return a \phpDocumentor\Reflection\DocBlock or false if it failed
    *   to instantiate the object.
    */
   private function getDocBlock($reflection) {
-    if ($this->doc_block_available === TRUE) {
+    if ($this->doc_block_available === true) {
       return new \phpDocumentor\Reflection\DocBlock($reflection->getDocComment());
     }
 
-    return FALSE;
+    return false;
   }
 
   /**
@@ -73,7 +63,7 @@ class Doc extends Base
 
     return $formats;
   }
-  
+
   /**
    * Get information about a specific format.
    *
@@ -86,11 +76,11 @@ class Doc extends Base
     $info = array(
       'content_type' => $format_instance->getContentType()
     );
-    
+
     if ($db = $this->getDocBlock($rc)) {
       $info['description'] = $db->getText();
     }
-    
+
     return $info;
   }
 
@@ -143,7 +133,7 @@ class Doc extends Base
 
     // Prepare the information structure.
     $info = array(
-      'default_method' => FALSE,
+      'default_method' => isset($service_instance->default_function) ? $service_instance->default_function : false,
       'methods' => array(),
     );
 
@@ -154,13 +144,9 @@ class Doc extends Base
 
     // Run through all the public methods of the service.
     foreach ($rc->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-
       // Public methods prepended with _ is not callable by the REST interface.
       if ($method->name[0] === '_') {
-        // If it's the '_blank' method call it to get the default method.
-        if ($method->name === '_blank') {
-          $info['default_method'] = $service_instance->_blank();
-        }
+        // @TODO Make an "excluded" array instead of using the _ prefix.
         continue;
       }
 
@@ -221,7 +207,7 @@ class Doc extends Base
         $parameter_data = array(
           'required' => !$parameter->isOptional(),
         );
-        if ($parameter_data['required'] === FALSE) {
+        if ($parameter_data['required'] === false) {
           $parameter_data['default'] = $parameter->isOptional() ? $parameter->getDefaultValue() : '';
         }
 
@@ -235,9 +221,9 @@ class Doc extends Base
       }
     }
 
-    // If there's no parameters set it to FALSE
+    // If there's no parameters set it to false
     if (empty($data['parameters'])) {
-      $data['parameters'] = FALSE;
+      $data['parameters'] = false;
     }
 
     return $data;

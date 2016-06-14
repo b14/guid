@@ -9,9 +9,6 @@ namespace B14\Rest\Format;
 class PHP extends \B14\Rest\Format\Base
 {
   /** {@inheritdoc} */
-  const NAME = 'php';
-
-  /** {@inheritdoc} */
   public function getContentType() {
     return 'text/plain';
   }

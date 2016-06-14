@@ -10,18 +10,7 @@ namespace B14\Rest\Service;
  */
 class Ping extends Base
 {
-  /** {@inheritdoc} */
-  const NAME = 'ping';
-
-  /**
-   * Get the default method of this service.
-   *
-   * @return string
-   *   Name of the method.
-   */
-  public function _blank() {
-    return 'ping';
-  }
+  public $default_method = 'ping';
 
   /**
    * A simple ping (upper) pong.

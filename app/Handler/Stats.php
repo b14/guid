@@ -74,11 +74,12 @@ class Stats extends \B14\Rest\Handler\Base
     $this->mc->increment($key, 1, 0, mktime(date('H'), 0, 0, date('n'), date('j') + 1));
   }
   
-  public function preHandle($status) {
+  public function getOutput($status, $output = null) {
     if ($status === \B14\Rest\Server::STATUS_SUCCESS) {
-      $this->updateStat($status, $this->server->service->_getName(), $this->server->method);
+      $service_name = $this->server->getProcessName('services', $this->server->service);
+      $this->updateStat($status, $service_name, $this->server->method);
     }
-    return $this;
+    return $output;
   }
   
   public function getStats() {

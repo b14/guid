@@ -9,9 +9,6 @@ namespace B14\Rest\Format;
 class XML extends \B14\Rest\Format\Base
 {
   /** {@inheritdoc} */
-  const NAME = 'xml';
-
-  /** {@inheritdoc} */
   public function getContentType() {
     return 'text/xml';
   }

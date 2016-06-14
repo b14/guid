@@ -4,7 +4,28 @@
 namespace B14\Rest;
 
 /**
+ * A REST Server.
  *
+ * It's a modular server, where you can easily add new output formats, services
+ * or handlers (a handler allows you to read and edit the output, before the
+ * formatter).
+ *
+ * For a quick setup use the {@link prepare()} function, coupled with .htaccess
+ * rewrite. Using clean urls a simple index.php example could be:
+ * <code>
+ * <?php
+ * $server = new B14\Rest\Server;
+ * $server
+ *   ->prepare()
+ *   ->handle();
+ * ?>
+ * </code>
+ *
+ * This will startup a simple REST, with only the standard services.
+ *
+ * You need to create your own service classes, to create your own callable
+ * methods. Have a look at the {@link B14\Rest\Service\Ping} class for a simple
+ * example.
  */
 class Server
 {
@@ -19,44 +40,58 @@ class Server
   /** Output status error. */
   const STATUS_ERROR = 'error';
 
+  const INFO_NONE = 0;
+  const INFO_MESSAGE = 0b1;
+  const INFO_TIMERS = 0b10;
+
   /**
    * The selected format.
+   *
    * @see prepareFormat()
    */
   protected $format;
 
   /**
    * The selected service.
+   *
    * @see prepareService()
    */
   protected $service;
 
   /**
    * The method to call.
+   *
    * @see prepareMethod()
    */
   protected $method;
 
   /**
    * The arguments as given by the client.
+   *
    * @see prepareArguments()
    */
   protected $arguments;
 
   /**
    * The arguments sorted to match the parameters order in the method.
+   *
    * @see prepareArguments()
    */
   protected $argument_list = array();
 
   /**
    * Options passed to the format.
+   *
    * @see prepareFormatOptions()
    */
   protected $format_options = array();
 
   /**
    * The list of available services.
+   *
+   * Note that the blank service is the default service called.
+   * You can remove any service with the {@link removeProcess()} function.
+   *
    * @see addService()
    */
   protected $services = array(
@@ -67,6 +102,11 @@ class Server
 
   /**
    * The list of available formats.
+   *
+   * Always have a default fallback (the blank), so if there's an error before
+   * the server has setup the selected fallback, that error can be represented
+   * to the user.
+   *
    * @see addFormat()
    */
   protected $formats = array(
@@ -78,20 +118,45 @@ class Server
 
   /**
    * The list handlers to run.
+   *
    * @see addHandler()
    */
   protected $handlers = array(
-    'B14\Rest\Handler\Caller' => 'B14\Rest\Handler\Caller'
+    'caller' => 'B14\Rest\Handler\Caller'
   );
 
   /**
-   * A keyed array of instantiated handlers.
-   * @see getHandler()
+   * Extra information
+   *
+   * @see addInformation()
    */
-  private $handler_map = array();
+  protected $info_flags = 0;
+
+  /**
+   * Extra information is added to this array as key value.
+   *
+   * @see addInformation()
+   */
+  protected $information = array();
 
   /** Instantiate. */
-  public function  __construct() { }
+  public function __construct($info_flags = self::INFO_NONE) {
+    $this->info_flags = $info_flags;
+  }
+
+  /**
+   * Add an information variable.
+   *
+   * @param string $key
+   *   The key.
+   * @param string $value
+   *   The value.
+   */
+  public function addInformation($key, $value, $type = self::INFO_MESSAGE) {
+    if ($this->info_flags & $type) {
+      $this->information[$key] = $value;
+    }
+  }
 
   /**
    * Prepare the output format.
@@ -103,12 +168,14 @@ class Server
    *   Chainable.
    */
   public function prepareFormat($format) {
+    // If the format selected doesn't exist set the default fallback and
+    // report an error back to the user.
     if (!isset($this->formats[$format])) {
-      $this->format = new $this->formats['']($this);
+      $this->format = $this->getProcess('formats', '');
       $this->handleError('pre-1', 'Unknown format');
     }
-    $this->format = new $this->formats[$format]($this);
 
+    $this->format = new $this->formats[$format]($this);
     return $this;
   }
 
@@ -128,8 +195,9 @@ class Server
   public function prepareFormatOptions($options) {
     $this->format_options = $options;
 
-    // If format_options is not an array put them into an array, so all
-    // formatters can expect an array.
+    // If format_options is not an array put them into an array.
+    // This way all formatters can expect an array when their out() function is
+    // called.
     if (!is_array($this->format_options)) {
       $this->format_options = array($this->format_options);
     }
@@ -150,13 +218,15 @@ class Server
     if (!isset($this->services[$service])) {
       $this->handleError('pre-2', 'Unknown service');
     }
-    $this->service = new $this->services[$service]($this);
+    $this->service = $this->getProcess('services', $service);
 
     return $this;
   }
 
   /**
    * Prepare the method.
+   *
+   * Checks if the method exists.
    *
    * @param string $method
    *   Name of the method.
@@ -168,9 +238,9 @@ class Server
     $this->method = $method;
 
     if (!method_exists($this->service, $method)) {
-      if ($method === NULL || $method === '') {
-        if (method_exists($this->service, '_blank')) {
-          $this->method = $this->service->_blank();
+      if (empty($method)) {
+        if (isset($this->service->default_method)) {
+          $this->method = $this->service->default_method;
         } else {
           $this->handleError('pre-3', 'Missing method');
         }
@@ -200,11 +270,15 @@ class Server
   public function prepareArguments($arguments) {
     $this->arguments = $arguments;
 
+    // Run through the parameters of the selected method, and sort the given
+    // arguments into an array, so they match the order of the method
+    // parameters.
     $rm = new \ReflectionMethod($this->service, $this->method);
     foreach ($rm->getParameters() as $parameter) {
       if (isset($this->arguments[$parameter->name])) {
         $this->argument_list[] = $this->arguments[$parameter->name];
-      } else if (!$parameter->isOptional()) {
+      } elseif (!$parameter->isOptional()) {
+        // If a non optional parameter is missing let the client know.
         $this->handleError('pre-6', 'Missing argument: \'' . $parameter->name . '\'');
       }
     }
@@ -268,11 +342,15 @@ class Server
    * @param mixed $output
    *   The start output.
    */
-  public function getOutput($status = self::STATUS_SUCCESS, $output = NULL) {
+  public function getOutput($status = self::STATUS_SUCCESS, $output = null) {
     foreach ($this->handlers as $name => $handler) {
-      $output = $this->getHandler($name)
-        ->preHandle($status)
-        ->handle($status, $output);
+      $pretime = microtime(true);
+
+      // var_dump($this->service);
+      $output = $this->getProcess('handlers', $name)
+        ->getOutput($status, $output);
+
+      $this->addInformation('handler-' . $name, microtime(true) - $pretime, self::INFO_TIMERS);
     }
 
     return $output;
@@ -297,19 +375,24 @@ class Server
    * @param bool $end
    *   If true (default), this will exit() the script.
    */
-  public function send($output, $http_code = 200, $end = TRUE) {
+  public function send($output, $http_code = 200, $end = true) {
     http_response_code($http_code);
     header('Content-Type: ' . $this->format->getContentType() . ';charset=utf-8');
+    
+    // Insert any information in the header.
+    foreach ($this->information as $key => $value) {
+      header('X-INFO-' . $key . ': ' . $value);
+    }
 
     echo $this->format->out($output, $this->format_options);
 
-    if ($end === TRUE) {
+    if ($end === true) {
       exit();
     }
   }
 
   /**
-   * A wrapper function for adding a new process.
+   * Add a new process.
    *
    * The process is attached to the $formats, $services or $handlers list.
    *
@@ -318,14 +401,18 @@ class Server
    * @param class $class
    *   The class to add.
    * @param string|bool $name
-   *   If not used the NAME constant from the class will be used.
+   *   Name of the process. When false, the $class parameter is used as the
+   *   name.
    * @param bool $prepend
    *   Instead of appending the process it will be prepended.
    *   This gives us a very primitive priority system.
+   *
+   * @return B14\Rest\Server
+   *   Chainable.
    */
-  protected function addProcess($list, $class, $name = FALSE, $prepend = FALSE) {
-    if ($name === FALSE) {
-      $name = $class::NAME;
+  public function addProcess($list, $class, $name = false, $prepend = false) {
+    if ($name === false) {
+      $name = $class;
     }
 
     if (!$prepend) {
@@ -337,24 +424,115 @@ class Server
     return $this;
   }
 
-  public function addFormat($class, $name = FALSE) {
+  /**
+   * Remove a process
+   *
+   * @param string $list
+   *   The list to add the class to.
+   * @param string $name
+   *   Name of the process.
+   * @param bool $prepend
+   *   Instead of appending the process it will be prepended.
+   *   This gives us a very primitive priority system.
+   *
+   * @return B14\Rest\Server
+   *   Chainable.
+   */
+  public function removeProcess($list, $name) {
+    unset($this->{$list}[$name]);
+    return $this;
+  }
+
+  /**
+   * Get an instance of a process.
+   *
+   * This will make the process into a singleton.
+   *
+   * @param string $list
+   *   The list to add the class to.
+   * @param string $name
+   *   Name of the process.
+   *
+   * @return object
+   *   The instantiated object.
+   */
+  public function getProcess($list, $name) {
+    if (is_string($this->{$list}[$name])) {
+      $this->{$list}[$name] = new $this->{$list}[$name]($this);
+    }
+
+    return $this->{$list}[$name];
+  }
+  
+  public function getProcessName($list, $class_name) {
+    if (is_object($class_name)) {
+      $class_name = get_class($class_name);
+    }
+    
+    foreach ($this->{$list} as $process_name => $process) {
+      if (!empty($process_name)) {
+        if ($class_name == $process
+          || (is_object($process) && get_class($process) == $class_name)) {
+          return $process_name;
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Wrapper for adding a new format.
+   *
+   * @param class $class
+   *   The class to add.
+   * @param string|bool $name
+   *   Name of the process. When false, the $class parameter is used as the
+   *   name.
+   *
+   * @return B14\Rest\Server
+   *   Chainable.
+   *
+   * @see addProcess()
+   */
+  public function addFormat($class, $name = false) {
     return $this->addProcess('formats', $class, $name);
   }
 
-  public function addService($class, $name = FALSE) {
+  /**
+   * Wrapper for adding a new service.
+   *
+   * @param class $class
+   *   The class to add.
+   * @param string|bool $name
+   *   Name of the process. When false, the $class parameter is used as the
+   *   name.
+   *
+   * @return B14\Rest\Server
+   *   Chainable.
+   *
+   * @see addProcess()
+   */
+  public function addService($class, $name) {
     return $this->addProcess('services', $class, $name);
   }
 
-  public function addHandler($class, $prepend = FALSE) {
-    return $this->addProcess('handlers', $class, $class, $prepend);
-  }
-
-  public function getHandler($name) {
-    if (is_string($this->handlers[$name])) {
-      $this->handlers[$name] = new $this->handlers[$name]($this);
-    }
-
-    return $this->handlers[$name];
+  /**
+   * Wrapper for adding a new handler.
+   *
+   * @param class $class
+   *   The class to add.
+   * @param string|bool $name
+   *   Name of the process. When false, the $class parameter is used as the
+   *   name.
+   *
+   * @return B14\Rest\Server
+   *   Chainable.
+   *
+   * @see addProcess()
+   */
+  public function addHandler($class, $name) {
+    return $this->addProcess('handlers', $class, $name);
   }
 
   /**

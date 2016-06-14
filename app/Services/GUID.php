@@ -5,12 +5,8 @@ namespace app\Services;
 
 class GUID extends \B14\Rest\Service\Base
 {
-  const NAME = 'guid';
-  
-  public function _blank() {
-    return 'get';
-  }
-  
+  public $default_method = 'get';
+
   /**
    * Get the GUID.
    *

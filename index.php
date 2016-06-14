@@ -21,10 +21,11 @@ $loader->addNamespace('phpDocumentor', __DIR__ . '/contrib/phpDocumentor');
 // Setup the server.
 $server = new B14\Rest\Server;
 $server
-  ->addService('app\Services\GUID')
-  ->addService('app\Services\System')
+  ->addService('app\Services\GUID', '')
+  ->addService('app\Services\GUID', 'guid')
+  ->addService('app\Services\System', 'system')
   
-  ->addHandler('app\Handler\Stats', TRUE)
+  ->addProcess('handlers', 'app\Handler\Stats', 'stats', TRUE)
   
   ->prepare()
   

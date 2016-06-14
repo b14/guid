@@ -16,9 +16,6 @@ namespace B14\Rest\Format;
 class JSON extends \B14\Rest\Format\Base
 {
   /** {@inheritdoc} */
-  const NAME = 'json';
-
-  /** {@inheritdoc} */
   public function getContentType() {
     return 'application/json';
   }
